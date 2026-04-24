@@ -2,9 +2,10 @@
 
 A population-genetics Monte-Carlo model of how partial HLA mismatch tolerance — the kind biodegradable stealth-polymer coatings on donor HSCs would provide — expands the matched-donor pool, with special attention to ethnic equity.
 
-**Author:** Huanxuan (Shawn) Li, TJHSST.  
+**Author:** Huanxuan Li (Shawn)
 **Target publication:** Journal of Emerging Investigators.  
 **Status:** early development.
+**Contact:** 2027hli@tjhsst.edu | shawnli1028@gmal.com | sh4wn.org
 
 ## Quickstart
 
