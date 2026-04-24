@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.ipynb_checkpoints/
+data/raw/*.tsv
+data/derived/
+!data/raw/SOURCES.md
+!data/.gitkeep
+!notebooks/.gitkeep
+.pytest_cache/
+.claude-flow/data/
+.claude-flow/logs/
+.hive-mind/
+*.egg-info/
