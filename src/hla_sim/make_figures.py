@@ -63,7 +63,7 @@ def figure_match_by_population(results: pd.DataFrame) -> Path:
 
 
 def figure_disparity_ratio(results: pd.DataFrame) -> Path:
-    """Figure 5: disparity ratio (max/min match prob across populations) vs τ."""
+    """Figure 4: disparity ratio (max/min match prob across populations) vs τ."""
     taus = sorted(results["tau"].unique())
     ratios = []
     for tau in taus:
@@ -80,7 +80,7 @@ def figure_disparity_ratio(results: pd.DataFrame) -> Path:
         ax.annotate(f"{y:.2f}", (x, y), xytext=(0, 8),
                     textcoords="offset points", ha="center", fontsize=9)
     fig.tight_layout()
-    out = FIG_DIR / "fig5_disparity_ratio.pdf"
+    out = FIG_DIR / "fig4_disparity_ratio.pdf"
     fig.savefig(out)
     fig.savefig(out.with_suffix(".png"))
     plt.close(fig)
