@@ -10,6 +10,7 @@ from hla_sim.simulate import (
     AlleleFrequencyTable,
     match_count_per_pair,
     match_probability,
+    paired_bootstrap_disparity,
     sample_individuals,
     simulate_population,
 )
@@ -81,3 +82,23 @@ def test_match_probability_in_unit_interval(tau):
     matches = simulate_population(tables, n_pairs=1_000, rng=rng)
     p = match_probability(matches, tau=tau)
     assert 0.0 <= p <= 1.0
+
+
+def test_paired_bootstrap_disparity_returns_finite_ci():
+    """Sanity check: paired bootstrap on D(τ) returns a sensible point and CI
+    when one population's allele distribution is more skewed than another."""
+    rng = np.random.default_rng(11)
+    uniform = {locus: make_table(locus=locus, freqs=[1/3, 1/3, 1/3])
+               for locus in ("A", "B", "DRB1")}
+    skewed = {locus: make_table(locus=locus, freqs=[0.9, 0.05, 0.05])
+              for locus in ("A", "B", "DRB1")}
+    m_uniform = simulate_population(uniform, n_pairs=5_000, rng=rng)
+    m_skewed = simulate_population(skewed, n_pairs=5_000, rng=rng)
+    matches_by_pop = {"uniform": m_uniform, "skewed": m_skewed}
+    point, lo, hi = paired_bootstrap_disparity(
+        matches_by_pop, tau=2, n_boot=50, rng=rng
+    )
+    # Skewed population matches more often; D = max/min should exceed 1.
+    assert point >= 1.0
+    assert lo <= point <= hi
+    assert np.isfinite(lo) and np.isfinite(hi)

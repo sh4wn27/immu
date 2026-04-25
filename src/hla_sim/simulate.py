@@ -136,13 +136,17 @@ def run_all_populations(
     n_pairs: int = 100_000,
     n_boot: int = 500,
     seed: int = SEED,
-) -> pd.DataFrame:
-    """End-to-end: load data for each population, simulate, return tidy DF.
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """End-to-end: load data for each population, simulate, return tidy DFs.
 
-    Columns: population, tau, match_prob, ci_lo, ci_hi.
+    Returns:
+        (per_population_results, disparity_results)
+        per_population_results columns: population, tau, match_prob, ci_lo, ci_hi.
+        disparity_results columns: tau, disparity, ci_lo, ci_hi.
     """
     rng = np.random.default_rng(seed)
     rows = []
+    matches_by_pop: dict[str, np.ndarray] = {}
     for pop in populations:
         try:
             tables = {
@@ -155,12 +159,24 @@ def run_all_populations(
             print(f"Skipping {pop}: {err}")
             continue
         matches = simulate_population(tables, n_pairs=n_pairs, rng=rng)
+        matches_by_pop[pop] = matches
         for tau in (0, 1, 2):
             point, lo, hi = bootstrap_ci(matches, tau=tau, n_boot=n_boot, rng=rng)
             rows.append(
                 dict(population=pop, tau=tau, match_prob=point, ci_lo=lo, ci_hi=hi)
             )
-    return pd.DataFrame(rows)
+    per_pop = pd.DataFrame(rows)
+
+    disparity_rows = []
+    for tau in (0, 1, 2):
+        point, lo, hi = paired_bootstrap_disparity(
+            matches_by_pop, tau=tau, n_boot=n_boot, rng=rng
+        )
+        disparity_rows.append(
+            dict(tau=tau, disparity=point, ci_lo=lo, ci_hi=hi)
+        )
+    disparity = pd.DataFrame(disparity_rows)
+    return per_pop, disparity
 
 
 def disparity_ratio(results: pd.DataFrame, tau: int) -> float:
@@ -171,18 +187,49 @@ def disparity_ratio(results: pd.DataFrame, tau: int) -> float:
     return float(sub["match_prob"].max() / max(sub["match_prob"].min(), 1e-9))
 
 
+def paired_bootstrap_disparity(
+    matches_by_pop: dict[str, np.ndarray],
+    tau: int,
+    n_boot: int,
+    rng: np.random.Generator,
+) -> tuple[float, float, float]:
+    """Paired-bootstrap CI on D(τ) preserving cross-population correlation.
+
+    Resamples row indices ONCE per bootstrap iteration and applies them to
+    every population's match matrix. Yields tighter, more accurate
+    intervals than independent per-population resampling, because the
+    same simulated sampling variance enters numerator and denominator.
+    """
+    pops = list(matches_by_pop)
+    if not pops:
+        return (float("nan"), float("nan"), float("nan"))
+    n = matches_by_pop[pops[0]].shape[0]
+    point_probs = [match_probability(matches_by_pop[p], tau=tau) for p in pops]
+    point = max(point_probs) / max(min(point_probs), 1e-9)
+    estimates = np.empty(n_boot)
+    for i in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        boot = [match_probability(matches_by_pop[p][idx], tau=tau) for p in pops]
+        estimates[i] = max(boot) / max(min(boot), 1e-9)
+    lo, hi = np.quantile(estimates, [0.025, 0.975])
+    return float(point), float(lo), float(hi)
+
+
 def main() -> None:
     from . import DEFAULT_POPULATIONS
 
-    results = run_all_populations(list(DEFAULT_POPULATIONS))
+    per_pop, disparity = run_all_populations(list(DEFAULT_POPULATIONS))
     out = Path("data/derived")
     out.mkdir(parents=True, exist_ok=True)
-    path = out / "match_results.csv"
-    results.to_csv(path, index=False)
-    print(results.to_string(index=False))
-    for tau in (0, 1, 2):
-        print(f"Disparity ratio at τ={tau}: {disparity_ratio(results, tau):.2f}")
-    print(f"Wrote {path}")
+    pop_path = out / "match_results.csv"
+    disp_path = out / "disparity_results.csv"
+    per_pop.to_csv(pop_path, index=False)
+    disparity.to_csv(disp_path, index=False)
+    print(per_pop.to_string(index=False))
+    print()
+    print("Paired-bootstrap disparity ratio:")
+    print(disparity.to_string(index=False))
+    print(f"Wrote {pop_path} and {disp_path}")
 
 
 if __name__ == "__main__":

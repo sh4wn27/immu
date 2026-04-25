@@ -15,10 +15,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from . import DEFAULT_POPULATIONS
+from . import DEFAULT_POPULATIONS, LOCI
 
 FIG_DIR = Path("docs/manuscript/figures")
 RESULTS = Path("data/derived/match_results.csv")
+RAW_DIR = Path("data/raw")
 
 
 def _setup():
@@ -30,6 +31,50 @@ def _setup():
         "figure.dpi": 140,
     })
     FIG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _shannon_entropy(freqs: np.ndarray) -> float:
+    """Shannon entropy in bits of an allele-frequency vector."""
+    p = freqs[freqs > 0]
+    return float(-(p * np.log2(p)).sum())
+
+
+def figure_allele_entropy(out_dir: Path = RAW_DIR) -> Path:
+    """Figure 2: per-locus Shannon entropy by population."""
+    from .simulate import AlleleFrequencyTable
+    rows = []
+    for pop in DEFAULT_POPULATIONS:
+        safe = pop.replace(" ", "_").replace("(", "").replace(")", "")
+        for locus in LOCI:
+            path = out_dir / f"afnd_{safe}_{locus}.tsv"
+            if not path.exists():
+                continue
+            table = AlleleFrequencyTable.from_tsv(path)
+            rows.append({"population": pop, "locus": locus,
+                         "entropy": _shannon_entropy(table.freqs)})
+    df = pd.DataFrame(rows)
+    pivot = df.pivot(index="population", columns="locus", values="entropy")
+    pivot = pivot.reindex(DEFAULT_POPULATIONS)[list(LOCI)]
+
+    fig, ax = plt.subplots(figsize=(6.5, 3.6))
+    im = ax.imshow(pivot.values, aspect="auto", cmap="YlOrRd")
+    ax.set_xticks(range(len(LOCI)))
+    ax.set_xticklabels([f"HLA-{l}" for l in LOCI])
+    ax.set_yticks(range(len(pivot.index)))
+    ax.set_yticklabels(pivot.index)
+    for i in range(pivot.shape[0]):
+        for j in range(pivot.shape[1]):
+            ax.text(j, i, f"{pivot.values[i, j]:.2f}",
+                    ha="center", va="center", fontsize=8,
+                    color="black" if pivot.values[i, j] < pivot.values.mean() else "white")
+    fig.colorbar(im, ax=ax, label="Shannon entropy (bits)")
+    ax.set_title("HLA allele-frequency diversity by population and locus")
+    fig.tight_layout()
+    out = FIG_DIR / "fig2_allele_entropy.pdf"
+    fig.savefig(out)
+    fig.savefig(out.with_suffix(".png"))
+    plt.close(fig)
+    return out
 
 
 def figure_match_by_population(results: pd.DataFrame) -> Path:
@@ -114,6 +159,40 @@ def figure_pool_expansion(results: pd.DataFrame) -> Path:
     return out
 
 
+def figure_sensitivity_stub(results: pd.DataFrame) -> Path:
+    """Figure 5: 2x2 sensitivity grid placeholder.
+
+    Real panels (HLA-C addition, halved N, per-locus τ, LD haplotype resampling)
+    require either re-runs of the simulator under different configs or external
+    haplotype data; this stub draws the shell so the manuscript compiles and
+    flags the panels with TODO labels until those analyses are implemented.
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(8, 6))
+    panels = [
+        ("a) Add HLA-C", "Add HLA-C to matching\n(8/8 instead of 6/6)"),
+        ("b) Halved N", "N = 50,000 pairs\n(SE robustness check)"),
+        ("c) Per-locus τ", "τ applied at each locus\n(more permissive)"),
+        ("d) Haplotype LD", "Haplotype-level resampling\n(CEU + Han Chinese)"),
+    ]
+    for ax, (title, body) in zip(axes.flat, panels):
+        ax.set_title(title, loc="left", fontsize=10, fontweight="bold")
+        ax.text(0.5, 0.5, body + "\n\n[TODO: implement]",
+                ha="center", va="center", transform=ax.transAxes,
+                fontsize=9, color="#666666")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for s in ax.spines.values():
+            s.set_color("#cccccc")
+    fig.suptitle("Sensitivity of disparity-ratio conclusion (stub)",
+                 fontsize=11, fontweight="bold")
+    fig.tight_layout()
+    out = FIG_DIR / "fig5_sensitivity.pdf"
+    fig.savefig(out)
+    fig.savefig(out.with_suffix(".png"))
+    plt.close(fig)
+    return out
+
+
 def main() -> None:
     _setup()
     if not RESULTS.exists():
@@ -124,9 +203,11 @@ def main() -> None:
         )
     results = pd.read_csv(RESULTS)
     paths = [
+        figure_allele_entropy(),
         figure_match_by_population(results),
         figure_pool_expansion(results),
         figure_disparity_ratio(results),
+        figure_sensitivity_stub(results),
     ]
     print("Wrote figures:")
     for p in paths:
