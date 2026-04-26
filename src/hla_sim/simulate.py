@@ -92,15 +92,24 @@ def simulate_population(
     tables: dict[str, AlleleFrequencyTable],
     n_pairs: int,
     rng: np.random.Generator,
+    loci: tuple[str, ...] = None,
 ) -> np.ndarray:
     """Simulate n_pairs patient-donor pairs; return per-pair match counts.
+
+    Args:
+        tables: {locus_name: AlleleFrequencyTable}.
+        n_pairs: number of patient–donor pairs to draw.
+        rng: numpy Generator.
+        loci: which loci to use (defaults to package-level LOCI).
 
     Returns:
         array shape (n_pairs, n_loci) with values in {0, 1, 2}.
     """
-    loci = [tables[l] for l in LOCI]
+    if loci is None:
+        loci = LOCI
     per_locus = []
-    for table in loci:
+    for locus_name in loci:
+        table = tables[locus_name]
         patient = sample_individuals(table, n_pairs, rng)
         donor = sample_individuals(table, n_pairs, rng)
         per_locus.append(match_count_per_pair(patient, donor))
@@ -110,10 +119,52 @@ def simulate_population(
 def match_probability(
     matches: np.ndarray, tau: int = 0
 ) -> float:
-    """Fraction of pairs with total_mismatch ≤ tau across all loci."""
-    total_matches = matches.sum(axis=1)  # out of 6
-    mismatches = 6 - total_matches
+    """Fraction of pairs with total_mismatch ≤ tau pooled across all loci.
+
+    Maximum match count is 2 × n_loci. Default LOCI gives a 6-cap.
+    """
+    n_loci = matches.shape[1]
+    max_match = 2 * n_loci
+    total_matches = matches.sum(axis=1)
+    mismatches = max_match - total_matches
     return float((mismatches <= tau).mean())
+
+
+def match_probability_per_locus(
+    matches: np.ndarray, tau_per_locus: int = 0
+) -> float:
+    """Fraction of pairs in which mismatch ≤ τ at EVERY locus.
+
+    Alternative tolerance definition: rather than pooling allowed
+    mismatches across loci, require each locus to be within τ on its
+    own. More permissive than pooled-τ for τ > 0.
+    """
+    per_locus_mm = 2 - matches  # mismatches at each locus (0, 1, or 2)
+    return float((per_locus_mm <= tau_per_locus).all(axis=1).mean())
+
+
+def hwe_homozygosity(freqs: np.ndarray) -> float:
+    """Closed-form Σ f_i² (homozygosity coefficient F).
+
+    Under HWE, F is also the probability that two independent random
+    allele draws from the population are identical. This is the
+    cleanest closed-form quantity to validate the simulator against:
+    take one allele from the patient and one from the donor; the
+    probability of identity is exactly F.
+    """
+    return float(np.sum(freqs ** 2))
+
+
+def hwe_full_match_per_locus(freqs: np.ndarray) -> float:
+    """Closed-form P(m_l = 2): two HWE diploids are identical at locus.
+
+    Combines the two homozygous-and-equal and heterozygous-and-equal
+    cases:
+        P(m_l = 2) = Σ f^4 + 4 Σ_{i<j} f_i^2 f_j^2 = 2(Σ f²)² − Σ f^4.
+    """
+    s2 = float(np.sum(freqs ** 2))
+    s4 = float(np.sum(freqs ** 4))
+    return 2.0 * s2 ** 2 - s4
 
 
 def bootstrap_ci(

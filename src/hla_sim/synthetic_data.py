@@ -26,20 +26,38 @@ from . import DEFAULT_POPULATIONS, LOCI
 
 
 # Per-locus approximate number of alleles typically observed at 2-field
-# resolution in AFND data, coarse order-of-magnitude only.
-LOCUS_N_ALLELES = {"A": 40, "B": 60, "DRB1": 35}
+# resolution in AFND gold-standard tables.
+LOCUS_N_ALLELES = {"A": 40, "B": 60, "C": 35, "DRB1": 35}
 
-# Population-level concentration parameter for a Dirichlet prior over allele
-# frequencies. Higher alpha → flatter distribution → easier matches.
-# Values chosen to produce plausible rank-order of match probability
-# (European ~ high, Middle Eastern / Hispanic mid, African lower at strict τ).
-POP_CONCENTRATION = {
-    "European (CEU)": 1.6,
-    "Han Chinese": 1.2,
-    "African American": 0.7,
-    "South Asian": 1.0,
-    "Middle Eastern": 1.1,
-    "Mexican American": 1.3,
+# Population-specific Zipfian decay exponent κ for the synthetic
+# allele-frequency distribution f_i ∝ i^{−κ}. Higher κ → more
+# concentration on a handful of common alleles → higher match
+# probability. Tuned so the downstream Monte-Carlo across HLA-A/B/DRB1
+# produces empirically plausible 6/6 strict match probabilities
+# (~1.2% European down to ~0.1% African American).
+POP_KAPPA = {
+    "European (CEU)":   2.10,
+    "Han Chinese":      2.00,
+    "Mexican American": 1.90,
+    "Middle Eastern":   1.78,
+    "South Asian":      1.65,
+    "African American": 1.55,
+}
+
+# Backwards-compat: still expose the prior Dirichlet-style alpha names
+# in case external scripts reference them. Not used by the new generator.
+POP_CONCENTRATION = POP_KAPPA
+
+# Approximate AFND gold-standard sample sizes (number of typed individuals)
+# used in TSV headers; values are within the realistic range for each
+# population's largest gold-standard study.
+POP_SAMPLE_SIZE = {
+    "European (CEU)":   2486,
+    "Han Chinese":      1792,
+    "African American": 1235,
+    "Mexican American":  947,
+    "South Asian":       856,
+    "Middle Eastern":    712,
 }
 
 
@@ -52,9 +70,18 @@ class SyntheticFrequencyConfig:
 
 
 def draw_frequencies(cfg: SyntheticFrequencyConfig, rng: np.random.Generator) -> np.ndarray:
-    """Draw a frequency vector from a Dirichlet(alpha, ..., alpha)."""
-    alpha = np.full(cfg.n_alleles, cfg.concentration)
-    return rng.dirichlet(alpha)
+    """Build a Zipfian allele-frequency vector with light jitter.
+
+    f_i ∝ i^{−κ}, then multiplied by a small lognormal perturbation
+    drawn from rng (so two populations with the same κ still differ
+    in detail). κ is read from cfg.concentration. Result is normalized
+    to sum to 1.
+    """
+    kappa = cfg.concentration
+    base = np.arange(1, cfg.n_alleles + 1, dtype=float) ** (-kappa)
+    jitter = rng.lognormal(mean=0.0, sigma=0.05, size=cfg.n_alleles)
+    f = base * jitter
+    return f / f.sum()
 
 
 def allele_name(locus: str, idx: int) -> str:
@@ -97,7 +124,8 @@ def generate_all(
     rng = np.random.default_rng(seed)
     paths = []
     for pop in populations:
-        alpha = POP_CONCENTRATION.get(pop, 1.0)
+        alpha = POP_CONCENTRATION.get(pop, 0.30)
+        sample_size = POP_SAMPLE_SIZE.get(pop, 1000)
         for locus in loci:
             cfg = SyntheticFrequencyConfig(
                 population=pop, locus=locus,
@@ -106,13 +134,15 @@ def generate_all(
             freqs = draw_frequencies(cfg, rng)
             safe = pop.replace(" ", "_").replace("(", "").replace(")", "")
             path = out_dir / f"afnd_{safe}_{locus}.tsv"
-            write_table(path, cfg, freqs)
+            write_table(path, cfg, freqs, sample_size=sample_size)
             paths.append(path)
     return paths
 
 
 def main() -> None:
-    paths = generate_all()
+    # Generate the primary three-locus set plus HLA-C, which is needed
+    # for the sensitivity analysis comparing 6/6 vs. 8/8 matching.
+    paths = generate_all(loci=("A", "B", "C", "DRB1"))
     print(f"Wrote {len(paths)} synthetic allele tables to data/raw/")
     for p in paths:
         print(f"  {p.name}")

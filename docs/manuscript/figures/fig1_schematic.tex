@@ -1,0 +1,77 @@
+% Concept schematic for Fig 1: HLA mismatch → GvHD; coating masks
+% epitopes → partial tolerance; the simulation models how this
+% translates to population-level donor pool size.
+%
+% Compile via the parent paper.tex \input or \includegraphics on a
+% standalone-rendered PDF: pdflatex -shell-escape fig1_schematic.tex
+\documentclass[tikz,border=4pt]{standalone}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,fit,backgrounds}
+
+\begin{document}
+\begin{tikzpicture}[
+    every node/.style={font=\small},
+    cell/.style={circle, draw=black!75, thick, minimum size=14mm, inner sep=0pt,
+                 fill=white},
+    epitope/.style={fill=red!70, draw=red!90, circle, minimum size=2mm, inner sep=0pt},
+    coat/.style={draw=blue!50!cyan, line width=0.6mm, dashed, circle, minimum size=18mm,
+                 inner sep=0pt},
+    box/.style={rectangle, rounded corners=2pt, draw=black!60, thick,
+                 minimum width=24mm, minimum height=12mm, align=center,
+                 fill=black!2},
+    arrow/.style={-Latex, thick},
+    headline/.style={font=\small\bfseries},
+]
+
+% --- ROW A: classical mismatch path ---
+\node[headline] (rowA) at (0, 4.6) {(a) Classical strict matching};
+\node[cell] (donA) at (-3.2, 3.0) {};
+\foreach \th in {0, 60, 120, 180, 240, 300} {
+    \node[epitope] at ($(donA.center)+({\th}:6mm)$) {};
+}
+\node[below=0.5mm of donA] {donor HSC};
+
+\node[cell] (recA) at (0, 3.0) {};
+\foreach \th in {30, 90, 150, 210, 270, 330} {
+    \node[epitope, fill=orange!70, draw=orange!90] at ($(recA.center)+({\th}:6mm)$) {};
+}
+\node[below=0.5mm of recA] {recipient};
+
+\node[box] (gvhdA) at (3.6, 3.0) {GvHD\\ rejection};
+
+\draw[arrow] (donA) -- node[above, font=\scriptsize]{HLA mismatch} (recA);
+\draw[arrow] (recA) -- (gvhdA);
+
+% --- ROW B: coating tolerance path ---
+\node[headline] (rowB) at (0, 1.0) {(b) Stealth-coated graft (tolerance $\tau$)};
+\node[cell] (donB) at (-3.2, -0.6) {};
+\foreach \th in {0, 60, 120, 180, 240, 300} {
+    \node[epitope, fill=red!25, draw=red!50] at ($(donB.center)+({\th}:6mm)$) {};
+}
+\node[coat] at (donB.center) {};
+\node[below=0.5mm of donB] {coated donor};
+
+\node[cell] (recB) at (0, -0.6) {};
+\foreach \th in {30, 90, 150, 210, 270, 330} {
+    \node[epitope, fill=orange!70, draw=orange!90] at ($(recB.center)+({\th}:6mm)$) {};
+}
+\node[below=0.5mm of recB] {recipient};
+
+\node[box, fill=green!10, draw=green!50!black] (engB) at (3.6, -0.6)
+    {tolerated\\ engraftment};
+
+\draw[arrow] (donB) -- node[above, font=\scriptsize]{epitopes masked} (recB);
+\draw[arrow] (recB) -- (engB);
+
+% --- ROW C: simulation abstraction ---
+\node[headline] (rowC) at (0, -3.0) {(c) Population-level abstraction (this work)};
+\node[box, minimum width=42mm] (afnd) at (-4.6, -4.6) {AFND allele\\ frequencies $f^{(p,\ell)}_k$};
+\node[box, minimum width=42mm] (sim) at (0, -4.6) {Monte-Carlo\\ patient--donor pairs};
+\node[box, minimum width=42mm, fill=yellow!10] (out) at (4.6, -4.6)
+    {$\Pr(\text{match}\mid\tau, p)$\\ disparity ratio $D(\tau)$};
+
+\draw[arrow] (afnd) -- (sim);
+\draw[arrow] (sim) -- (out);
+
+\end{tikzpicture}
+\end{document}
