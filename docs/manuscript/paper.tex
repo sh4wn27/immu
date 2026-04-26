@@ -24,20 +24,27 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{cleveref}
 \usepackage[numbers,sort&compress]{natbib}
-\usepackage{authblk}
 \usepackage{setspace}
 
 \graphicspath{{figures/}}
 
-% Placeholder marker for numbers pending real AFND data.
-\newcommand{\PH}[1]{\textcolor{red}{\textbf{[#1]}}}
 
-\title{Modeling the equity impact of partial HLA mismatch tolerance via biodegradable stealth-polymer coatings: a population-genetics simulation}
+\usepackage{setspace}
+\onehalfspacing
 
-\author[1]{Huanxuan (Shawn) Li}
-\affil[1]{Thomas Jefferson High School for Science and Technology, Alexandria, Virginia, USA}
+\title{
+\textbf{Modeling the equity impact of partial HLA mismatch tolerance via biodegradable stealth-polymer coatings:\\
+A population-genetics simulation}
+}
 
-\date{\today}
+\author{
+Huanxuan Li\\
+\small Thomas Jefferson High School for Science and Technology\\
+\small Alexandria, Virginia, United States\\
+\small \texttt{2027hli@tjhsst.edu}
+}
+
+\date{October 2025}
 
 \begin{document}
 \maketitle
@@ -252,18 +259,16 @@ The natural extensions are (i) a fully LD-aware haplotype model across all model
 \label{sec:conclusion}
 A biodegradable stealth-polymer coating that enabled tolerance of one or two HLA allele-level mismatches would expand the HSCT donor pool unevenly across ancestries, in a way that disproportionately benefits patients from populations currently disadvantaged by registry genetics. The inter-population disparity ratio in our model declined monotonically with tolerance: under an idealized $\tau = 2$ coating, the disparity gap was reduced by $85\%$ relative to strict matching --- from a ratio of $30.8$ to $4.73$. The relative pool-expansion factor was 216-fold for African American patients versus 33-fold for European-ancestry patients, despite Europeans seeing the larger absolute increase in match probability. These estimates define the equity ceiling that such a technology could, in principle, attain, and provide a population-genetics target against which future clinical-translation work on stealth-coating therapies can be benchmarked.
 
-% ---------------------------------------------------------------
 \section*{Acknowledgments}
-We thank the Allele Frequency Net Database team for maintaining public access to the data used here, and the TJHSST research program for institutional support.
+We thank the Allele Frequency Net Database team for maintaining public access to the data used here, and Stanford iGEM research team for institutional mentorship and support.
+
+% ---------------------------------------------------------------
 
 \section*{Code and data availability}
-All analysis code, data-fetching scripts, and figure-generation code are available at \url{https://github.com/shawnli1028/hla-equity-sim}. Raw AFND downloads are deposited with SHA-256 checksums in \texttt{data/raw/SOURCES.md}.
+All analysis code, data-fetching scripts, and figure-generation code are available at \url{https://github.com/sh4wn27/immu}.
 
 \section*{Author contributions}
 H.L.\ designed the study, wrote the simulation code, performed the analyses, and wrote the manuscript.
-
-\section*{Competing interests}
-The author declares no competing interests.
 
 % ---------------------------------------------------------------
 \bibliographystyle{plainnat}
