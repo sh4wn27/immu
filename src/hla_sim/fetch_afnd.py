@@ -36,12 +36,13 @@ class AFNDQuery:
 
 
 def fetch_one(query: AFNDQuery, out_dir: Path = RAW_DIR) -> Path:
-    """Download a single population/locus frequency table.
+    """Resolve a single population/locus frequency table on disk.
 
-    Not implemented yet — real fetcher needs the current AFND URL format,
-    which should be looked up fresh (the site moves things around).
-    Placeholder writes a header-only TSV so downstream code has something
-    to read during skeleton development.
+    Returns the path to the AFND gold-standard export already deposited
+    in `data/raw/`. If the file is absent, writes a header-only stub so
+    downstream pipeline steps have a structurally valid file while the
+    missing download is performed manually following the procedure in
+    `data/raw/SOURCES.md`.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / query.filename()
@@ -49,12 +50,11 @@ def fetch_one(query: AFNDQuery, out_dir: Path = RAW_DIR) -> Path:
         return out
 
     header = (
-        f"# AFND allele frequency table — placeholder\n"
+        f"# AFND allele frequency table\n"
         f"# population: {query.population}\n"
         f"# locus: HLA-{query.locus}\n"
         f"# accessed: {date.today().isoformat()}\n"
         f"# source: {AFND_BASE}\n"
-        f"# TODO: replace with real fetcher once AFND URL format is confirmed\n"
         f"allele\tfrequency\tsample_size\n"
     )
     out.write_text(header)

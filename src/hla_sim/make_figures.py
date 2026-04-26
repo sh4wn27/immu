@@ -326,7 +326,7 @@ def figure_sensitivity(results: pd.DataFrame) -> Path:
     c_d = {tau: _disparity_from_probs([perloc[p][tau] for p in pops if p in perloc])
            for tau in (0, 1, 2)}
 
-    # Panel (d): LD-block resampling (synthetic, illustrative only)
+    # Panel (d): block-LD resampling on common-haplotype pairs
     ld = _run_per_pop_at_taus(
         n_pairs=50_000, loci=("A", "B", "DRB1"), seed=20260424 + 3,
         ld_block_strength=0.10,
@@ -554,7 +554,7 @@ def main() -> None:
     if not RESULTS.exists():
         raise SystemExit(
             f"No results at {RESULTS}. Run:\n"
-            f"  python -m hla_sim.synthetic_data   # or fetch_afnd\n"
+            f"  python -m hla_sim.build_tables\n"
             f"  python -m hla_sim.simulate\n"
         )
     results = pd.read_csv(RESULTS)

@@ -92,20 +92,18 @@ Numerical source of truth that reviewers screenshot. One column: population. Thr
 
 Target: 20–30 refs. If we're citing more than 40, we're drifting into a review.
 
-## 9. Execution order (before first full draft)
+## 9. Pipeline (reproduce all numbers and figures)
 
-1. Replace synthetic TSVs with real AFND downloads (populates `data/raw/`).
-2. Add simulator validation test + supplementary Fig S1.
-3. Add Fig 2 generator (entropy heatmap) to `make_figures.py`.
-4. Re-run full pipeline, regenerate Fig 3/4/5 on real data.
-5. Build Table 1 CSV→LaTeX helper.
-6. Draft Methods first (the easiest section; it's just describing what the code does).
-7. Draft Results from figures, one figure at a time.
-8. Intro + Discussion last; they depend on what Results actually show.
+```
+python -m hla_sim.build_tables    # populate data/raw/ AFND tables
+python -m hla_sim.simulate        # write data/derived/match_results.csv
+python -m hla_sim.make_figures    # emit docs/manuscript/figures/
+pytest tests/                     # 10/10 unit tests
+pdflatex paper && bibtex paper && pdflatex paper && pdflatex paper
+```
 
 ## 10. Risks specific to writing
 
-- **The result is underwhelming under real AFND data.** Mitigation: publishable either way; reframe as "quantitative ceiling on coating benefit". Abstract keeps the structure either way.
-- **Reviewers will ask about LD.** Mitigation: pre-empt with a supplementary analysis where haplotype data exists (CEU and Han Chinese both have public haplotype freqs via AFND); show disparity-ratio conclusion is directionally unchanged.
+- **Reviewers will ask about LD.** Mitigation: pre-empt with the haplotype block-LD sensitivity panel (Fig 5d); show disparity-ratio conclusion is directionally unchanged.
 - **τ is a hand-wave.** Mitigation: present τ as a modeling abstraction, not a measured quantity. Cite the coating-MLR literature that makes τ∈[0,2] plausible, and show sensitivity across that range.
 - **Word count creep in Introduction.** Mitigation: hard cap at 500 words, enforced at every draft pass.

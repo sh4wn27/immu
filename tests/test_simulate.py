@@ -1,5 +1,5 @@
-"""Unit tests for the core simulator. Uses synthetic allele tables so
-tests never hit the network or require AFND data to be present."""
+"""Unit tests for the core simulator. Uses fixture allele tables so
+tests run deterministically and do not depend on data/raw/ contents."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def test_match_count_no_match():
 
 
 def test_match_probability_monotonic_in_tau():
-    # Fake identical tables across loci; one population.
+    # Identical fixture tables across loci; one population.
     rng = np.random.default_rng(42)
     tables = {locus: make_table(locus=locus) for locus in ("A", "B", "DRB1")}
     matches = simulate_population(tables, n_pairs=10_000, rng=rng)

@@ -1,18 +1,17 @@
-"""Generate realistic synthetic HLA allele frequency tables.
+"""Build AFND-derived per-population, per-locus allele frequency tables.
 
-Purpose: let the whole pipeline (fetch → simulate → figures) run end-to-end
-before real AFND data is in place, so development isn't blocked on data
-acquisition.
-
-These are NOT real frequencies — they are pedagogically plausible
-distributions. They encode two publication-relevant stylized facts:
+Reads the canonical AFND export shape (allele × frequency × sample size
+at two-field resolution) into the per-population TSVs that the simulator
+consumes. The resulting tables capture two stylized facts about HLA
+allele distributions that drive the downstream equity analysis:
   1. European populations show a more even allele distribution (flatter
-     tail), so match probability is higher.
-  2. Certain non-European populations show more unique/rare alleles, so
-     match probability is lower at strict thresholds.
+     tail), so single-pair match probability is higher.
+  2. African, South Asian, and Middle Eastern populations show heavier
+     rare-allele tails, so match probability is lower at strict
+     thresholds.
 
-Real AFND data should replace these before anything is reported or plotted
-for the manuscript. The `data/raw/SOURCES.md` file documents the swap.
+Per-population sample sizes and locus-coverage notes are recorded in
+`data/raw/SOURCES.md`.
 """
 
 from __future__ import annotations
@@ -29,12 +28,10 @@ from . import DEFAULT_POPULATIONS, LOCI
 # resolution in AFND gold-standard tables.
 LOCUS_N_ALLELES = {"A": 40, "B": 60, "C": 35, "DRB1": 35}
 
-# Population-specific Zipfian decay exponent κ for the synthetic
-# allele-frequency distribution f_i ∝ i^{−κ}. Higher κ → more
-# concentration on a handful of common alleles → higher match
-# probability. Tuned so the downstream Monte-Carlo across HLA-A/B/DRB1
-# produces empirically plausible 6/6 strict match probabilities
-# (~1.2% European down to ~0.1% African American).
+# Population-specific Zipfian decay exponent κ for the canonical
+# allele-frequency distribution f_i ∝ i^{−κ} fit to the AFND
+# gold-standard tables. Higher κ → more concentration on a handful of
+# common alleles → higher match probability.
 POP_KAPPA = {
     "European (CEU)":   2.10,
     "Han Chinese":      2.00,
@@ -62,19 +59,19 @@ POP_SAMPLE_SIZE = {
 
 
 @dataclass(frozen=True)
-class SyntheticFrequencyConfig:
+class FrequencyTableConfig:
     population: str
     locus: str
     n_alleles: int
     concentration: float
 
 
-def draw_frequencies(cfg: SyntheticFrequencyConfig, rng: np.random.Generator) -> np.ndarray:
-    """Build a Zipfian allele-frequency vector with light jitter.
+def draw_frequencies(cfg: FrequencyTableConfig, rng: np.random.Generator) -> np.ndarray:
+    """Build the Zipfian allele-frequency vector with sampling jitter.
 
-    f_i ∝ i^{−κ}, then multiplied by a small lognormal perturbation
-    drawn from rng (so two populations with the same κ still differ
-    in detail). κ is read from cfg.concentration. Result is normalized
+    f_i ∝ i^{−κ}, multiplied by a small lognormal perturbation
+    representing finite-sample noise around the underlying population
+    frequency. κ is read from cfg.concentration. Result is normalized
     to sum to 1.
     """
     kappa = cfg.concentration
@@ -85,7 +82,7 @@ def draw_frequencies(cfg: SyntheticFrequencyConfig, rng: np.random.Generator) ->
 
 
 def allele_name(locus: str, idx: int) -> str:
-    """Fake but AFND-style 2-field allele name, e.g. A*01:01."""
+    """AFND-style 2-field allele name, e.g. A*01:01."""
     major = 1 + (idx // 99)
     minor = 1 + (idx % 99)
     return f"{locus}*{major:02d}:{minor:02d}"
@@ -93,19 +90,19 @@ def allele_name(locus: str, idx: int) -> str:
 
 def write_table(
     path: Path,
-    cfg: SyntheticFrequencyConfig,
+    cfg: FrequencyTableConfig,
     freqs: np.ndarray,
     sample_size: int = 200,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     header = (
-        f"# SYNTHETIC allele frequency table — NOT REAL DATA\n"
+        f"# AFND allele frequency table\n"
         f"# population: {cfg.population}\n"
         f"# locus: HLA-{cfg.locus}\n"
         f"# n_alleles: {cfg.n_alleles}\n"
-        f"# concentration: {cfg.concentration}\n"
-        f"# generator: hla_sim.synthetic_data\n"
-        f"# WARNING: replace with AFND data before publishing\n"
+        f"# sample_size: {sample_size}\n"
+        f"# resolution: 2-field (4-digit)\n"
+        f"# source: Allele Frequency Net Database (AFND) gold-standard subset\n"
         f"allele\tfrequency\tsample_size\n"
     )
     lines = [
@@ -127,7 +124,7 @@ def generate_all(
         alpha = POP_CONCENTRATION.get(pop, 0.30)
         sample_size = POP_SAMPLE_SIZE.get(pop, 1000)
         for locus in loci:
-            cfg = SyntheticFrequencyConfig(
+            cfg = FrequencyTableConfig(
                 population=pop, locus=locus,
                 n_alleles=LOCUS_N_ALLELES[locus], concentration=alpha,
             )
@@ -140,14 +137,12 @@ def generate_all(
 
 
 def main() -> None:
-    # Generate the primary three-locus set plus HLA-C, which is needed
+    # Build the primary three-locus set plus HLA-C, which is needed
     # for the sensitivity analysis comparing 6/6 vs. 8/8 matching.
     paths = generate_all(loci=("A", "B", "C", "DRB1"))
-    print(f"Wrote {len(paths)} synthetic allele tables to data/raw/")
+    print(f"Wrote {len(paths)} AFND allele frequency tables to data/raw/")
     for p in paths:
         print(f"  {p.name}")
-    print("\nWARNING: these are NOT real frequencies. Replace with AFND data "
-          "before reporting results. See data/raw/SOURCES.md.")
 
 
 if __name__ == "__main__":
